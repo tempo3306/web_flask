@@ -11,8 +11,9 @@ from . import db, login_manager
 
 
 class Permission:
-    SEARCH = 0x01
-    EDIT = 0x02
+    VIEW = 0x01
+    SEARCH = 0x02
+    EDIT = 0x04
 #WRITE_ARTICLES = 0x04
 #    MODERATE_COMMENTS = 0x08
     ADMINISTER = 0x80
@@ -29,8 +30,9 @@ class Role(db.Model):
     @staticmethod
     def insert_roles():
         roles = {
-            'User': (Permission.SEARCH , True),
-            'Moderator': (Permission.SEARCH |
+            'Visitor':(Permission.VIEW,True),
+            'User': (Permission.SEARCH , False),
+            'Manager': (Permission.SEARCH |
                           Permission.EDIT , False),
             'Administrator': (0xff, False)
         }
@@ -90,27 +92,6 @@ class User(UserMixin, db.Model):
                                 cascade='all, delete-orphan')
     comments = db.relationship('Comment', backref='author', lazy='dynamic')    #lazy 决定了 SQLAlchemy 什么时候从数据库中加载数据
 
-    @staticmethod
-    def generate_fake(count=100):
-        from sqlalchemy.exc import IntegrityError
-        from random import seed
-        import forgery_py
-
-        seed()
-        for i in range(count):
-            u = User(email=forgery_py.internet.email_address(),
-                     username=forgery_py.internet.user_name(True),
-                     password=forgery_py.lorem_ipsum.word(),
-                     confirmed=True,
-                     name=forgery_py.name.full_name(),
-                     location=forgery_py.address.city(),
-                     about_me=forgery_py.lorem_ipsum.sentence(),
-                     member_since=forgery_py.date.date(True))
-            db.session.add(u)                        #数据库添加
-            try:
-                db.session.commit()                  #提交会话
-            except IntegrityError:
-                db.session.rollback()                #回滚到添加之前的状态
 
 
 
@@ -225,18 +206,23 @@ class BID_action(db.Model):
 
     def __repr__(self):
         return '<BID %r>' % self.diff
-'''
-    def to_json(self):
-        json_post = {
-            'diff': self.diff,
-            'refer_time': self.refer_time,
-            'bid_time': self.bid_time,
-            'author': url_for('api.get_user', id=self.author_id,
-                              _external=True),
 
-        }
-        return json_post
-'''
+#拍牌登录信息
+class login_user(db.Model):
+    __tablename__='Account'
+    id=db.Column(db.Integer,primary_key=True)
+    name=db.Column(db.String)   #用户名与User名相同
+    password=db.Column(db.String)  #与Password相同，使用hash存储
+    login=db.Column(db.Integer)   #登录状态
+    CODE=db.Column(db.String)    #使用的标书号
+    codepsd=db.Column(db.String) #标书登录密码
+    ID_number=db.Column(db.Integer)
+    IP=db.Column  #记录登录IP
+    MAC=db.Column(db.String)     #记录登录MAC地址
+    COUNT=db.Column(db.Integer)  #登录状态
+
+
+
 #继承自Flask-Login 中的AnonymousUserMixin 类，并将其设为用户未登录时current_user 的值
 #这样程序不用先检查用户是否登录，就能自由调用current_user.can() 和current_user.is_administrator()
 class AnonymousUser(AnonymousUserMixin):
@@ -253,105 +239,6 @@ login_manager.anonymous_user = AnonymousUser
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-#文章数据库
-class Post(db.Model):
-    __tablename__ = 'posts'
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text)
-    body_html = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    comments = db.relationship('Comment', backref='post', lazy='dynamic')
-    @staticmethod
-    def generate_fake(count=100):
-        from random import seed, randint
-        import forgery_py
 
-        seed()
-        user_count = User.query.count()
-        for i in range(count):
-            u = User.query.offset(randint(0, user_count - 1)).first()
-            p = Post(body=forgery_py.lorem_ipsum.sentences(randint(1, 5)),
-                     timestamp=forgery_py.date.date(True),
-                     author=u)
-            db.session.add(p)
-            db.session.commit()
-
-#转换后的博客文章HTML 代码缓存在Post 模型的一个新字段中，在模板中可以直接调用
-    @staticmethod
-    def on_changed_body(target, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
-                        'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
-                        'h1', 'h2', 'h3', 'p']
-        target.body_html = bleach.linkify(bleach.clean(
-            markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
-
-    def to_json(self):
-        json_post = {
-            'url': url_for('api.get_post', id=self.id, _external=True),
-            'body': self.body,
-            'body_html': self.body_html,
-            'timestamp': self.timestamp,
-            'author': url_for('api.get_user', id=self.author_id,
-                              _external=True),
-            'comments': url_for('api.get_post_comments', id=self.id,
-                                _external=True),
-            'comment_count': self.comments.count()
-        }
-        return json_post
-
-
-    @staticmethod
-    def from_json(json_post):
-        body = json_post.get('body')
-        if body is None or body == '':
-            raise ValidationError('post does not have a body')
-        return Post(body=body)
-
-#文章的Markdown 源文本还要保存在数据库中，以防需要编辑
-db.event.listen(Post.body, 'set', Post.on_changed_body)   #监听数据库
-
-#类似
-class Comment(db.Model):
-    __tablename__ = 'comments'
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text)
-    body_html = db.Column(db.Text)
-    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
-    disabled = db.Column(db.Boolean)
-
-#"relationship"_id
-    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))     #表单名.id
-    post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
-
-    @staticmethod
-    def on_changed_body(target, value, oldvalue, initiator):
-        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'code', 'em', 'i',
-                        'strong']
-        target.body_html = bleach.linkify(bleach.clean(
-            markdown(value, output_format='html'),
-            tags=allowed_tags, strip=True))
-
-    def to_json(self):
-        json_comment = {
-            'url': url_for('api.get_comment', id=self.id, _external=True),
-            'post': url_for('api.get_post', id=self.post_id, _external=True),
-            'body': self.body,
-            'body_html': self.body_html,
-            'timestamp': self.timestamp,
-            'author': url_for('api.get_user', id=self.author_id,
-                              _external=True),
-        }
-        return json_comment
-
-    @staticmethod
-    def from_json(json_comment):
-        body = json_comment.get('body')
-        if body is None or body == '':
-            raise ValidationError('comment does not have a body')
-        return Comment(body=body)
-
-db.event.listen(Comment.body, 'set', Comment.on_changed_body)
 
 

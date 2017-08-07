@@ -14,7 +14,7 @@ if os.path.exists('.env'):
             os.environ[var[0]] = var[1]
 
 from app import create_app, db
-from app.models import User, Follow, Role, Permission, Post, Comment,Auction_data,BID_action
+from app.models import User, Follow, Role, Permission,Auction_data,BID_action
 from app.info_models import Article
 from flask_script import Manager, Shell
 from flask_migrate import Migrate, MigrateCommand
@@ -30,22 +30,22 @@ migrate = Migrate(app, db)
 
 def make_shell_context():
     return dict(app=app, db=db, User=User, Follow=Follow, Role=Role,
-                Permission=Permission, Post=Post, Comment=Comment,Auction_data=Auction_data,BID_action=BID_action)
+                Permission=Permission,Auction_data=Auction_data,BID_action=BID_action)
 manager.add_command("shell", Shell(make_context=make_shell_context))
 manager.add_command('db', MigrateCommand)
 
 
-#增加管理员界面
-admin = Admin(app, name='MyAdmin')  #, template_mode='bootstrap3'
-###后台管理
-class MyView(BaseView):
-    @expose('/')
-    def index(self):
-        return self.render('admin/index.html')
-admin.add_view(ModelView(User, db.session))
-admin.add_view(ModelView(Role, db.session))
-admin.add_view(ModelView(Auction_data, db.session))
-admin.add_view(ModelView(BID_action, db.session))
+# #增加管理员界面
+# admin = Admin(app, name='MyAdmin')  #, template_mode='bootstrap3'
+# ###后台管理
+# class MyView(BaseView):
+#     @expose('/')
+#     def index(self):
+#         return self.render('admin/index.html')
+# admin.add_view(ModelView(User, db.session))
+# admin.add_view(ModelView(Role, db.session))
+# admin.add_view(ModelView(Auction_data, db.session))
+# admin.add_view(ModelView(BID_action, db.session))
 
 
 
