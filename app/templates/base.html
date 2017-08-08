@@ -25,13 +25,15 @@
             <ul class="nav navbar-nav">
                 <li><a href="{{ url_for('main.index') }}">主页</a></li>
 
-                {% if current_user.is_authenticated %}
+                {% if current_user.can(Permission.SEARCH) %}
+                <li><a href="{{ url_for('main.info', username=current_user.username) }}">信息查询</a></li>
+                {% endif %}
+                {% if current_user.can(Permission.SEARCH) %}
                 <li><a href="{{ url_for('main.file_upload', username=current_user.username) }}">上传</a></li>
                 {% endif %}
 
 
-
-				        {% if current_user.is_authenticated %}
+				        {% if current_user.can(Permission.EDIT) %}
                 <li class="dropdown">
                     <a href="#" class="dropdown-toggle" data-toggle="dropdown">
                          创建  <b class="caret"></b>
@@ -43,7 +45,7 @@
                 </li>
                 {% endif %}
 
-				        {% if current_user.is_authenticated %}
+				        {% if current_user.can(Permission.EDIT) %}
                 <li class="dropdown">
                     <a href="#" class="dropdown-toggle" data-toggle="dropdown">
                        查询 <b class="caret"></b>

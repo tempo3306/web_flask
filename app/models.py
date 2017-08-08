@@ -31,7 +31,7 @@ class Role(db.Model):
     def insert_roles():
         roles = {
             'Visitor':(Permission.VIEW,True),
-            'User': (Permission.SEARCH , False),
+            'Inneruser': (Permission.SEARCH|Permission.VIEW , False),
             'Manager': (Permission.SEARCH |
                           Permission.EDIT , False),
             'Administrator': (0xff, False)
@@ -49,14 +49,6 @@ class Role(db.Model):
         return '<Role %r>' % self.name
 
 
-class Follow(db.Model):
-    __tablename__ = 'follows'
-    follower_id = db.Column(db.Integer, db.ForeignKey('users.id'),
-                            primary_key=True)
-    followed_id = db.Column(db.Integer, db.ForeignKey('users.id'),
-                            primary_key=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
 
 #登录模块，用户创建
 class User(UserMixin, db.Model):
@@ -66,6 +58,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(64), unique=True, index=True)
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
     password_hash = db.Column(db.String(128))
+    passwd=db.Column(db.String(32))
     confirmed = db.Column(db.Boolean, default=False)
     name = db.Column(db.String(64))
     location = db.Column(db.String(64))
@@ -73,27 +66,11 @@ class User(UserMixin, db.Model):
     member_since = db.Column(db.DateTime(), default=datetime.utcnow)  #创建时间
     last_seen = db.Column(db.DateTime(), default=datetime.utcnow)     #最后登录时间
     avatar_hash = db.Column(db.String(32))
-#博客文章包含正文、时间戳以及和User模型之间的一对多关系
-    posts = db.relationship('Post', backref='author', lazy='dynamic')
+
 
 # 对应策略
     bids = db.relationship('Auction_data', backref='author', lazy='dynamic') #一对一  ,lazy='immediate',uselist=False
     actions = db.relationship('BID_action', backref='author', lazy='dynamic')   #一对一,uselist=False
-
-    followed = db.relationship('Follow',
-                               foreign_keys=[Follow.follower_id],
-                               backref=db.backref('follower', lazy='joined'),
-                               lazy='dynamic',
-                               cascade='all, delete-orphan')
-    followers = db.relationship('Follow',
-                                foreign_keys=[Follow.followed_id],       #外键，用于关联
-                                backref=db.backref('followed', lazy='joined'),
-                                lazy='dynamic',
-                                cascade='all, delete-orphan')
-    comments = db.relationship('Comment', backref='author', lazy='dynamic')    #lazy 决定了 SQLAlchemy 什么时候从数据库中加载数据
-
-
-
 
     @property            #这可以让你将一个类方法转变成一个类属性,表示只读。
     def password(self):

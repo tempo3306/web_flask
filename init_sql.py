@@ -1,103 +1,29 @@
-# encoding: utf-8
-'''
-@author: zhushen
-@contact: 810909753@q.com
-@time: 2017/5/27 16:31
-'''
-
-import psycopg2
-from io import StringIO
-####--------------------------------------------
-####登录
-conn = psycopg2.connect(dbname='hpdb',user='zs',password='6228009123')
-
-cur = conn.cursor()
-###--------------------------------------------
-####删除表
-# sql_delete = "DROP TABLE IF EXISTS ACCOUNT;"
-# cur.execute(sql_delete)
-# conn.commit()
-###--------------------------------------------
-####创建表
-sql = """CREATE TABLE IF NOT EXISTS Account (
-NAME VARCHAR(32) NOT NULL,
-PASSWORD VARCHAR(32) NOT NULL,
-LOGIN INT NOT NULL,
-CODE VARCHAR(32) ,
-MAC VARCHAR(32),
-COUNT INT)
-"""
-try:
-    cur.execute(sql)
-    conn.commit()
-except:
-    conn.rollback()
-
-###--------------------------------------------
-#####批量增加条目
-######copy_from(file, table, sep='\t', null='\\N', size=8192, columns=None)
-
-values = []
-for i in range(10,100):
-    name = '123456%d' % i
-    password = '123456'
-    code = 'asd%d' % i
-    li=[name, password, '0', code, '3']
-    one='\t'.join(li)
-    values.append(one)
-a='\n'.join(values)
-
-cur.copy_from(StringIO(a), 'Account',
-              columns=( 'NAME', 'PASSWORD','LOGIN', 'CODE', 'COUNT'))
-conn.commit()
-###--------------------------------------------
+#创建用户
 
 
+#已经存在的对象就不能再创建了，通过查询，或者修改role_id    role 属性应访问 模型对象
+admin_role=Role.query.filter_by(name='Manager').first()
+super_role=Role.query.filter_by(name='Administrator').first()
 
+user_role=Role.query.filter_by(name='Visitor').first()
 
-try:
-    cur.execute(sql)
-    conn.commit()
-except:
-    conn.rollback()
-#--------------------------------------------------------------------
-#修改数据库
-#更新
-# passwd=1
-# sql="update Account set password=100 where name='%s'" % (passwd)
-# try:
-#     cur.execute(sql)
-#     conn.commit()
-# except:
-#     conn.rollback()
+helong=User(username="helong",role=admin_role,password='123456',passwd='123456')
+yuan=User(username="yuanjunkai",role=admin_role,password='123456',passwd='123456')
+zs=User(username='zs',role=super_role,password='123456',passwd='123456')
+db.session.add(yuan)
+db.session.add(helong)
+db.session.add(zs)
+db.session.commit()
+for i in range(100):
+    user_john = User(username='shooter%d'%i, role=user_role,password='123456',passwd='123456')
+    db.session.add(user_john)
+db.session.commit()
 
-# #--------------------------------------------------------------------
-# # 查询
-# cur.execute("select * from Account")
-#
-# results = cur.fetchall()
-# #--------------------------------------------------------------------
-# print(results)
+#修改
 
-# 关闭数据库
-cur.close()
-conn.close()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#mysql使用
-# cur.executemany('insert into Account(NAME,PASSWORD,LOGIN,CODE,COUNT) values (%s,%s,%s,%s,%s)', values)
-
-#设置默认值
-# sql="alter table tablename alter column columnname set default defaultvalue"
+# user_role=Role(name='Inneruser')
+for i in range(100):
+    a=User.query.filter_by(username='shooter%d'%i).first()
+    a.role_id=2    #修改ROLE_ID
+    db.session.add(a)
+db.session.commit()

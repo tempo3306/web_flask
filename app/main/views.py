@@ -8,7 +8,7 @@ from .forms import EditProfileForm, EditProfileAdminForm, \
 Edit_BID_dataForm,Edit_BID_actionForm
 
 from .. import db
-from ..models import User, Follow, Role, Permission,Auction_data,BID_action
+from ..models import User, Role, Permission,Auction_data,BID_action
 from ..info_models import Article
 from ..decorators import admin_required, permission_required
 import os
@@ -39,24 +39,7 @@ def server_shutdown():
 
 @main.route('/', methods=['GET', 'POST'])
 def index():
-    show_followed = False
-    show_new = False
-    ####判断是否显示
-    # if show_followed:
-    #     query = current_user.followed_posts
-    # else:
-    #     query = Post.query
-    #
-    # if show_new:
-    #     query = current_user.name
-    # else:
-    #     query = Post.query
 
-    posts = Article.query.order_by(Article.timestamp.desc()).all()
-    page = request.args.get('page', 1, type=int)
-    pagination = Article.query.order_by(Article.timestamp.desc()).paginate(
-        page, per_page=current_app.config['FLASKY_POSTS_PER_PAGE'],
-        error_out=False)
     return render_template('index.html')
 
     # return render_template('index.html',  posts=posts,
@@ -74,16 +57,7 @@ def user(username):
                            pagination=pagination)
 
 
-@main.route('/information', methods=['GET', 'POST'])
-def information():
-    form = BulletinForm()
-    if form.validate_on_submit():
-        user = User.query.filter_by(email=form.email.data).first()
-        if user is not None and user.verify_password(form.password.data):
-            login_user(user, form.remember_me.data)
-            return redirect(request.args.get('next') or url_for('main.index'))
-        flash('Invalid username or password.')
-    return render_template('information.html', form=form)
+
 
 
 @main.route('/edit-profile', methods=['GET', 'POST'])
@@ -153,21 +127,6 @@ def post(id):
                            comments=comments, pagination=pagination)
 
 
-@main.route('/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit(id):
-    post = Post.query.get_or_404(id)
-    if current_user != post.author and \
-            not current_user.can(Permission.ADMINISTER):
-        abort(403)
-    form = PostForm()
-    if form.validate_on_submit():
-        post.body = form.body.data
-        db.session.add(post)
-        flash('The post has been updated.')
-        return redirect(url_for('.post', id=post.id))
-    form.body.data = post.body
-    return render_template('edit_post.html', form=form)
 
 
 ####点击后设置cookie,触发界面判断
@@ -189,13 +148,7 @@ def show_new():
     return resp
 
 
-@main.route('/followed')
-@login_required  #########要求登录
-def show_followed():
-    resp = make_response(redirect(url_for('.index')))
-    resp.set_cookie('show_followed', '1', max_age=30 * 24 * 60 * 60)
-    resp.set_cookie('show_new', '', max_age=30 * 24 * 60 * 60)
-    return resp
+
 
 '''
 @main.route('/moderate')
@@ -237,6 +190,7 @@ def moderate_disable(id):
 
 @main.route('/uploaded',methods=['GET','POST'])
 @login_required  #########要求登录
+@permission_required(Permission.SEARCH)
 def uploaded():
     if request.method == 'POST':
         file = request.files['file']
@@ -253,6 +207,7 @@ def uploaded():
 # 上传
 @main.route('/file_upload',methods=['GET','POST'])
 @login_required  #########要求登录
+@permission_required(Permission.SEARCH)
 def file_upload():
     form=FileForm()
     name=current_user.name
@@ -278,6 +233,18 @@ def file_upload():
                 return render_template('file_upload.html',form=form)
     else:
         return render_template('file_upload.html',form=form)
+
+
+##
+@main.route('/info',methods=['GET'])
+@login_required  #########要求登录
+@permission_required(Permission.SEARCH)
+def info():
+    name=current_user.name
+
+    return render_template('info.html')
+
+
 
 #创建标书信息
 @login_required
@@ -314,6 +281,7 @@ def bid_data():
 #创建策略
 @login_required
 @main.route('/bid_action', methods=['GET', 'POST'])
+@permission_required(Permission.EDIT)
 def bid_action():
     # 判断是否是管理员
     user = User.query.filter_by(username=current_user.username).first()
@@ -341,6 +309,7 @@ def bid_action():
 #查询功能创建
 @login_required
 @main.route('/Inquiry_data', methods=['GET', 'POST'])
+@permission_required(Permission.EDIT)
 def Inquiry_data():
     form=InquiryForm()
     name=current_user.name
@@ -349,6 +318,7 @@ def Inquiry_data():
 
 @login_required
 @main.route('/Inquiry_action', methods=['GET', 'POST'])
+@permission_required(Permission.SEARCH)
 def Inquiry_action():
     form=InquiryForm()
     name=current_user.name
@@ -368,6 +338,7 @@ def Inquiry_action():
 
 @login_required
 @main.route('/Edit_BID_data/<device_id>', methods=['GET', 'POST'])
+@permission_required(Permission.SEARCH)
 def Edit_BID_data(device_id):
     device = Auction_data.query.filter_by(id=device_id).first()
 
@@ -401,6 +372,7 @@ def Edit_BID_data(device_id):
 
 @login_required
 @main.route('/Edit_action_data/<device_id>', methods=['GET', 'POST'])
+@permission_required(Permission.EDIT)
 def Edit_action_data(device_id):
     device = BID_action.query.filter_by(id=device_id).first()
 
